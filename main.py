@@ -61,8 +61,8 @@ def main():
                 during the questionare to be recorded and used for research purposes only. 
                 No personal information will be shared to the public.
                 """)
-        st.write("- I aknowleged my data will be used for research purposes.")
-        st.write("- I aknowleged my information will not be shared to the public")
+        st.write("- I acknowledge my data will be used for research purposes.")
+        st.write("- I acknowledge my information will not be shared to the public")
         consent_given = st.checkbox("I agree to the consent above")
 
         if st.button("Submit Consent"):
@@ -85,7 +85,7 @@ def main():
             age = st.number_input("Enter age", min_value=18, max_value=60, step=1)
             occupation = st.text_input("Enter occupation")
             familiarity = st.selectbox("Enter familiarity", options =
-                                   ["", "Not Familar", "Familar", "Somewhat Familar"])
+                                   ["", "Not Familiar", "Somewhat Familiar", "Familiar"])
             submitted = st.form_submit_button("Submit")
 
             missing = False
@@ -110,45 +110,57 @@ def main():
     with tasks:
         st.header("Task Page")
 
-        st.write("Please select a task and record your experience completing it.")
+        # Define available tasks and their descriptions
+        task_options = {
+            "Task 1: Example 1": "Press the Start Task Timer to begin.",
+            "Task 2: Do Homework": "Records how long it takes to do homework.",
+            "Task 3: Break Time": "Records how long user takes breaks.",
+        }
 
-        # For this template, we assume there's only one task, in project 3, we will have to include the actual tasks
-        selected_task = st.selectbox("Select Task", ["Task 1: Example Task"])
-        st.write("Task Description: Perform the example task in our system...")
+        selected_task = st.selectbox("Select Task", list(task_options.keys()))
 
-        # Track success, completion time, etc.
-        start_button = st.button("Start Task Timer")
+        st.write(f"*Task Description:* {task_options[selected_task]}")
+
+        # Start/Stop Task Timer
+        col1, col2 = st.columns(2)
+        with col1:
+            start_button = st.button("Start Task Timer")
+        with col2:
+            stop_button = st.button("Stop Task Timer")
+
         if start_button:
             st.session_state["start_time"] = time.time()
-            st.info(f"Task timer started. Complete your task and then click 'Stop Task Timer'.")
+            st.info("Task timer started. Complete your task and then click 'Stop Task Timer'.")
 
-        stop_button = st.button("Stop Task Timer")
         if stop_button and "start_time" in st.session_state:
             duration = time.time() - st.session_state["start_time"]
             rounded_duration = round(duration, 2)
             st.session_state["task_duration"] = duration
             st.success(f"Task duration recorded: {rounded_duration} seconds")
 
+        # Task outcome
         success = st.radio("Was the task completed successfully?", ["Yes", "No", "Partial"])
         notes = st.text_area("Observer Notes")
 
         if st.button("Save Task Results"):
             duration_val = st.session_state.get("task_duration", None)
-            st.success("Task data saved.")
+
+            task_name = selected_task.split(":")[0].strip()
+
             data_dict = {
                 "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-                "task_name": selected_task,
+                "task_name": task_name,
                 "success": success,
                 "duration_seconds": round(duration_val, 2) if duration_val else "",
                 "notes": notes
             }
-            save_to_csv(data_dict, TASK_CSV)
 
-            # Reset any stored time in session_state if you'd like
-            if "start_time" in st.session_state:
-                del st.session_state["start_time"]
-            if "task_duration" in st.session_state:
-                del st.session_state["task_duration"]
+            save_to_csv(data_dict, TASK_CSV)
+            st.success("Task results saved.")
+
+            # Clear session state
+            st.session_state.pop("start_time", None)
+            st.session_state.pop("task_duration", None)
 
     with exit:
         st.header("Exit Questionnaire")
@@ -196,41 +208,63 @@ def main():
     with report:
         st.header("Usability Report - Aggregated Results")
 
-        st.write("**Consent Data**")
+        # Consent Data
+        st.subheader("Consent Data")
         consent_df = load_from_csv(CONSENT_CSV)
         if not consent_df.empty:
             st.dataframe(consent_df)
         else:
             st.info("No consent data available yet.")
 
-        st.write("**Demographic Data**")
+        # Demographic Data
+        st.subheader("Demographic Data")
         demographic_df = load_from_csv(DEMOGRAPHIC_CSV)
         if not demographic_df.empty:
             st.dataframe(demographic_df)
         else:
             st.info("No demographic data available yet.")
 
-        st.write("**Task Performance Data**")
+        # Task Data
+        st.subheader("Task Performance Data")
         task_df = load_from_csv(TASK_CSV)
         if not task_df.empty:
             st.dataframe(task_df)
+
+            # Bar chart of task success distribution
+            st.markdown("**Task Completion Outcomes**")
+            success_counts = task_df["success"].value_counts()
+            st.bar_chart(success_counts)
+
+            # Average duration per task
+            if "duration_seconds" in task_df.columns:
+                duration_means = task_df.groupby("task_name")["duration_seconds"].mean()
+                st.markdown("**Average Task Duration (seconds)**")
+                st.bar_chart(duration_means)
+
         else:
             st.info("No task data available yet.")
 
-        st.write("**Exit Questionnaire Data**")
+        # Exit Questionnaire Data
+        st.subheader("Exit Questionnaire Data")
         exit_df = load_from_csv(EXIT_CSV)
         if not exit_df.empty:
             st.dataframe(exit_df)
-        else:
-            st.info("No exit questionnaire data available yet.")
 
-        # Example of aggregated stats (for demonstration only)
-        if not exit_df.empty:
-            st.subheader("Exit Questionnaire Averages")
+            # Likert bar charts
+            st.markdown("**Satisfaction Distribution**")
+            st.bar_chart(exit_df["satisfaction"].value_counts().sort_index())
+
+            st.markdown("**Difficulty Distribution**")
+            st.bar_chart(exit_df["difficulty"].value_counts().sort_index())
+
+            # Averages
+            st.markdown("**Average Ratings**")
             avg_satisfaction = exit_df["satisfaction"].mean()
             avg_difficulty = exit_df["difficulty"].mean()
-            st.write(f"**Average Satisfaction**: {avg_satisfaction:.2f}")
-            st.write(f"**Average Difficulty**: {avg_difficulty:.2f}")
+            st.write(f"Average Satisfaction: {avg_satisfaction:.2f}")
+            st.write(f"Average Difficulty: {avg_difficulty:.2f}")
+        else:
+            st.info("No exit questionnaire data available yet.")
 
 
 if __name__ == "__main__":
